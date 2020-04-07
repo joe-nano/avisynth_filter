@@ -4,6 +4,7 @@
 #include "format.h"
 #include "prop_settings.h"
 #include "prop_status.h"
+#include "logging.h"
 
 
 #ifdef _DEBUG
@@ -63,6 +64,24 @@ static void FillPinTypes() {
 //#define LOGGING
 //#define MINIDUMP
 
+#ifdef LOGGING
+static FILE *g_logFile = nullptr;
+static DWORD g_logStartTime;
+#endif
+
+void Log(const char *format, ...) {
+#ifdef LOGGING
+    fprintf_s(g_logFile, "T %6i @ %8i: ", GetCurrentThreadId(), timeGetTime() - g_logStartTime);
+
+    va_list args;
+    va_start(args, format);
+    vfprintf_s(g_logFile, format, args);
+    va_end(args);
+
+    fputc('\n', g_logFile);
+#endif
+}
+
 #ifdef MINIDUMP
 static google_breakpad::ExceptionHandler *g_exHandler;
 #endif
@@ -72,8 +91,8 @@ static void CALLBACK InitRoutine(BOOL bLoading, const CLSID *rclsid) {
         FillPinTypes();
 
 #ifdef LOGGING
-        // also require HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\DirectShow\Debug\avisynth_filter.ax\LogToFile set to a file path
-        DbgSetModuleLevel(LOG_TRACE, 2);
+        g_logFile = _fsopen("C:\\avisynth_filter.log", "w", _SH_DENYNO);
+        g_logStartTime = timeGetTime();
 #endif // LOGGING
 
 #ifdef MINIDUMP
@@ -83,6 +102,12 @@ static void CALLBACK InitRoutine(BOOL bLoading, const CLSID *rclsid) {
 #ifdef MINIDUMP
         delete g_exHandler;
 #endif // MINIDUMP
+
+#ifdef LOGGING
+        if (g_logFile != nullptr) {
+            fclose(g_logFile);
+        }
+#endif
     }
 }
 
